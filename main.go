@@ -23,16 +23,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Always close db connection after intraction
+	// Always close db connection after interaction
 	defer db.Close()
 
+	// Create the table if it doesnt exist
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT, email TEXT)")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Create router
 	router := mux.NewRouter()
 	router.HandleFunc("/users", getUsers(db)).Methods("GET")
 	router.HandleFunc("/users/{id}", getUser(db)).Methods("GET")
 	router.HandleFunc("/users", createUser(db)).Methods("POST")
 	router.HandleFunc("/users/{id}", updateUser(db)).Methods("PUT")
-	router.HandleFunc("users/{id}", deleteUser(db)).Methods("DELETE")
+	router.HandleFunc("/users/{id}", deleteUser(db)).Methods("DELETE")
 
 	// Start server
 	log.Fatal(http.ListenAndServe(":8000", jsonContentTypeMiddleware(router)))
@@ -82,7 +87,9 @@ func getUser(db *sql.DB) http.HandlerFunc {
 		err := db.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&u.ID, &u.Name, &u.Email)
 		if err != nil {
 			// TODO: fix error handling
-			log.Fatal(err)
+			// log.Fatal(err)
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
 
 		json.NewEncoder(w).Encode(u)
@@ -95,7 +102,7 @@ func createUser(db *sql.DB) http.HandlerFunc {
 		var u User
 		json.NewDecoder(r.Body).Decode(&u)
 
-		err := db.QueryRow("INSERT INTO users (name, email) WALUES ($1,$2) RETURNING id", u.Name, u.Email)
+		err := db.QueryRow("INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id", u.Name, u.Email).Scan(&u.ID)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -128,12 +135,24 @@ func deleteUser(db *sql.DB) http.HandlerFunc {
 		vars := mux.Vars(r)
 		id := vars["id"]
 
-		_, err := db.Exec("DELETE FROM users WHERE id = $1", id)
+		var u User
+		err := db.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&u.ID, &u.Name, &u.Email)
 		if err != nil {
 			// TODO: fix error handling
-			log.Fatal(err)
+			// log.Fatal(err)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		} else {
+			_, err := db.Exec("DELETE FROM users WHERE id = $1", id)
+			if err != nil {
+				// TODO: fix error handling
+				// log.Fatal(err)
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			json.NewEncoder(w).Encode("User deleted")
 		}
 
-		json.NewEncoder(w).Encode("User deleted")
 	}
 }
