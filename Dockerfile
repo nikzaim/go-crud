@@ -17,4 +17,4 @@ RUN go build -o api .
 EXPOSE 8000
 
 # Run the executable
-CMD ["./api"]
+CMD ["./api"]  
