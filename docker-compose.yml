@@ -9,17 +9,18 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - go-db
+      - go_db
   go_db:
     container_name: go_db
-    image: postgres:12
+    image: postgres
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
-    volumes: -pgdata:/var/lib/postgresql/data
+    volumes:
+      - pgdata:/var/lib/postgresql/data
 
 volumes:
   pgdata: {}
